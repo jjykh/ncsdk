@@ -15,18 +15,20 @@
 * Any license under such intellectual property rights must be express and
 * approved by Intel in writing.
 */
-
+#ifndef _WIN32
 #define _GNU_SOURCE
 #include <dlfcn.h>		// For dladdr
+#include <unistd.h>
+#include <dirent.h>
+#include <pthread.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include <dirent.h>
 #include <time.h>
-#include <pthread.h>
+#include <libusb.h>
 #include "mvnc.h"
 #include "usb_link.h"
 #include "usb_boot.h"
@@ -53,7 +55,12 @@
 #define STATUS_WAIT_TIMEOUT     15
 
 static int initialized = 0;
+
+#ifndef _WIN32
 static pthread_mutex_t mm = PTHREAD_MUTEX_INITIALIZER;
+#else
+pthread_mutex_t mm;
+#endif
 
 int mvnc_loglevel = 0;
 
@@ -96,6 +103,7 @@ struct Graph {
 
 static double time_in_seconds()
 {
+#ifndef _WIN32
 	static double s;
 	struct timespec ts;
 
@@ -103,6 +111,15 @@ static double time_in_seconds()
 	if (!s)
 		s = ts.tv_sec + ts.tv_nsec * 1e-9;
 	return ts.tv_sec + ts.tv_nsec * 1e-9 - s;
+#else
+    FILETIME now;
+    ULARGE_INTEGER t;
+
+    GetSystemTimeAsFileTime(&now);
+    t.u.HighPart = now.dwHighDateTime;
+    t.u.LowPart = now.dwLowDateTime;
+    return t.QuadPart / 10000000.0;
+#endif
 }
 
 static void initialize()
@@ -146,6 +163,7 @@ static mvncStatus load_fw_file(const char *name)
 	char mv_cmd_file[MAX_PATH_LENGTH], *p;
 
 	// Search the mvnc executable in the same directory of this library, under mvnc
+#ifndef _WIN32
 	Dl_info info;
 	dladdr(mvncOpenDevice, &info);
 	strncpy(mv_cmd_file, info.dli_fname, sizeof(mv_cmd_file) - 40);
@@ -154,6 +172,19 @@ static mvncStatus load_fw_file(const char *name)
 		strcpy(p + 1, "mvnc/MvNCAPI.mvcmd");
 	else
 		strcpy(mv_cmd_file, "mvnc/MvNCAPI.mvcmd");
+#else
+    HMODULE hm = NULL;
+
+    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&mvncOpenDevice, &hm))
+        return MVNC_MVCMD_NOT_FOUND;
+
+    GetModuleFileNameA(hm, mv_cmd_file, sizeof(mv_cmd_file));
+    p = strrchr(mv_cmd_file, '\\');
+    if (!p)
+        return MVNC_MVCMD_NOT_FOUND;
+
+    strcpy(p + 1, "MvNCAPI.mvcmd");
+#endif
 
 	// Load the mvnc executable
 	fp = fopen(mv_cmd_file, "rb");

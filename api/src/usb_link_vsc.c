@@ -15,22 +15,23 @@
 * Any license under such intellectual property rights must be express and
 * approved by Intel in writing.
 */
-
+#ifndef _WIN32
+#include <unistd.h>
+#include <sys/file.h>
+#include <sys/wait.h>
+#include <sys/un.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/file.h>
 #include <fcntl.h>
-#include <sys/wait.h>
 #include <sys/timeb.h>
-#include <sys/un.h>
 #include <errno.h>
-#include <sys/ioctl.h>
 #include <time.h>
-#include <termios.h>
 #include <libusb.h>
 
 #include "usb_link.h"

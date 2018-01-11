@@ -19,15 +19,16 @@
 // USB utility for use with Myriad2v2 ROM
 // Very heavily modified from Sabre version of usb_boot
 // Author: David Steinberg <david.steinberg@movidius.com>
-
+#ifndef _WIN32
 #include <unistd.h>
+#include <getopt.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <getopt.h>
 #include <errno.h>
 #include <ctype.h>
 #include <libusb.h>
@@ -42,8 +43,9 @@
 static unsigned int bulk_chunk_len = DEFAULT_CHUNK_SZ;
 static int write_timeout = DEFAULT_WRITE_TIMEOUT;
 static int connect_timeout = DEFAULT_CONNECT_TIMEOUT;
-static int initialized;
 
+#ifdef __linux__
+static int initialized;
 void __attribute__ ((constructor)) usb_library_load()
 {
 	initialized = !libusb_init(NULL);
@@ -74,6 +76,26 @@ static inline double highres_elapsed_ms(highres_time_t *start, highres_time_t *e
 	}
 	return (double)(temp.tv_sec * 1000) + (((double)temp.tv_nsec) * 0.000001);
 }
+#else
+static int initialized = 1;
+
+typedef FILETIME highres_time_t;
+
+static inline void highres_gettime(highres_time_t *ptr)
+{
+    GetSystemTimeAsFileTime(ptr);
+}
+
+static inline double highres_elapsed_ms(highres_time_t *start, highres_time_t *end)
+{
+    ULARGE_INTEGER s, e;
+    s.u.HighPart = start->dwHighDateTime;
+    s.u.LowPart = start->dwLowDateTime;
+    e.u.HighPart = end->dwHighDateTime;
+    e.u.LowPart = end->dwLowDateTime;
+    return (e.QuadPart - s.QuadPart) / 10000.0;
+}
+#endif
 
 static const char *gen_addr(libusb_device *dev)
 {
@@ -101,7 +123,7 @@ int usb_find_device(unsigned idx, char *addr, unsigned addr_size, void **device,
 		    int vid, int pid)
 {
 	static libusb_device **devs;
-	libusb_device *dev;
+	libusb_device *dev, *first = NULL;
 	struct libusb_device_descriptor desc;
 	int count = 0;
 	size_t i;
@@ -140,6 +162,7 @@ int usb_find_device(unsigned idx, char *addr, unsigned addr_size, void **device,
 						  DEFAULT_OPEN_VID &&
 						  desc.idProduct ==
 						  DEFAULT_OPEN_PID)))) {
+			if (!first) first = dev;
 			if (device) {
 				const char *caddr = gen_addr(dev);
 				if (!strcmp(caddr, addr)) {
@@ -162,6 +185,13 @@ int usb_find_device(unsigned idx, char *addr, unsigned addr_size, void **device,
 			}
 			count++;
 		}
+	}
+	if (device && first && count == 1) {
+		libusb_ref_device(first);
+		libusb_free_device_list(devs, 1);
+		*device = first;
+		devs = 0;
+		return 0;
 	}
 	libusb_free_device_list(devs, 1);
 	devs = 0;

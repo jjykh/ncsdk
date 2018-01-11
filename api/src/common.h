@@ -32,3 +32,15 @@
 #define DEFAULT_PID				0x2150	// Myriad2v2 ROM
 #define DEFAULT_OPEN_VID			DEFAULT_VID
 #define DEFAULT_OPEN_PID			0xf63b	// Once opened in VSC mode, VID/PID change
+
+#ifdef _MSC_VER
+#define usleep(us)                  Sleep((us + 900)/1000)
+#define snprintf                    _snprintf
+#define strtok_r                    strtok_s
+
+#define pthread_mutex_t             CRITICAL_SECTION
+#define pthread_mutex_init(a,b)     InitializeCriticalSection(a)
+#define pthread_mutex_destroy(x)    DeleteCriticalSection(x)
+#define pthread_mutex_lock(x)       EnterCriticalSection(x)
+#define pthread_mutex_unlock(x)     LeaveCriticalSection(x)
+#endif

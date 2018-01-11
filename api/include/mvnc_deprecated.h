@@ -6,6 +6,11 @@ extern "C"
 {
 #endif
 
+#ifdef _MSC_VER
+#define __attribute__(x)    /**/
+#define _Pragma(x)          /**/
+#endif
+
 typedef mvncGraphOptions GraphOptions __attribute__ \
 			((deprecated("GraphOptions is deprecated. Please use mvncGraphOptions")));
 typedef mvncDeviceOptions DeviceOptions __attribute__ \

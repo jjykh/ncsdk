@@ -1,0 +1,15 @@
+LIBRARY "mvnc.dll"
+EXPORTS
+  mvncGetDeviceName
+  mvncOpenDevice
+  mvncCloseDevice
+  mvncAllocateGraph
+  mvncDeallocateGraph
+  mvncSetGlobalOption
+  mvncGetGlobalOption
+  mvncSetGraphOption
+  mvncGetGraphOption
+  mvncSetDeviceOption
+  mvncGetDeviceOption
+  mvncLoadTensor
+  mvncGetResult
